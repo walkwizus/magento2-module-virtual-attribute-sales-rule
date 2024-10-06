@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <type name="Magento\SalesRule\Model\Rule\Condition\Product">
+        <plugin name="sales_rule_condition_product_virtual_attribute" sortOrder="100" type="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\ProductVirtualAttribute"/>
+    </type>
+    <type name="Magento\SalesRule\Model\Rule\Condition\Address">
+        <plugin name="sales_rule_condition_address_virtual_attribute" sortOrder="110" type="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\AddressVirtualAttribute"/>
+    </type>
+    <type name="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\ProductVirtualAttribute">
+        <arguments>
+            <argument name="attributeProvider" xsi:type="object">Walkwizus\VirtualAttributeSalesRule\Model\ProductVirtualAttributeProvider</argument>
+        </arguments>
+    </type>
+    <type name="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\AddressVirtualAttribute">
+        <arguments>
+            <argument name="attributeProvider" xsi:type="object">Walkwizus\VirtualAttributeSalesRule\Model\AddressVirtualAttributeProvider</argument>
+        </arguments>
+    </type>
+</config>

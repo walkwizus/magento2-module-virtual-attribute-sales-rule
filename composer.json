@@ -1,0 +1,31 @@
+{
+    "name": "walkwizus/magento2-module-virtual-attribute-sales-rule",
+    "description": "Virtual Attribute Sales Rule for Magento 2",
+    "type": "magento2-module",
+    "version": "1.0.0",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jimmy Carricart",
+            "email": "jimmy@walkwizus.fr"
+        }
+    ],
+    "homepage": "https://github.com/walkwizus/magento2-module-virtual-attribute-sales-rule",
+    "keywords": [
+        "Adobe Commerce",
+        "Magento",
+        "Magento 2"
+    ],
+    "require": {
+        "magento/framework": "^103",
+        "php": "^8.1"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Walkwizus\\VirtualAttributeSalesRule\\": ""
+        }
+    }
+}
