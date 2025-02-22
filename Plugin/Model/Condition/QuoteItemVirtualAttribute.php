@@ -19,6 +19,7 @@ class QuoteItemVirtualAttribute extends AbstractVirtualAttribute
      */
     protected function getModel(AbstractModel $model): AbstractModel
     {
-        return $model->getQuote();
+        $product = $model->getProduct();
+        return $model->getQuote()->getItemByProduct($product);
     }
 }
