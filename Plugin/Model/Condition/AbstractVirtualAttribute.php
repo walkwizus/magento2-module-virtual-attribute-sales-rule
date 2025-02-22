@@ -13,6 +13,11 @@ use Walkwizus\VirtualAttributeSalesRule\Api\Data\VirtualAttributeInterface;
 abstract class AbstractVirtualAttribute
 {
     /**
+     * @var string|null
+     */
+    protected ?string $attributeCodePrefix = null;
+
+    /**
      * @param VirtualAttributeProvider $attributeProvider
      * @param Yesno $yesno
      */
@@ -22,11 +27,30 @@ abstract class AbstractVirtualAttribute
     ) { }
 
     /**
+     * @param AbstractModel $model
+     * @return AbstractModel
+     */
+    abstract protected function getModel(AbstractModel $model): AbstractModel;
+
+    /**
      * @param AbstractCondition $subject
      * @param AbstractModel $model
      * @return void
      */
-    abstract protected function beforeValidate(AbstractCondition $subject, AbstractModel $model): void;
+    public function beforeValidate(AbstractCondition $subject, AbstractModel $model): void
+    {
+        foreach ($this->getAttributes() as $code => $attribute) {
+            $object = $this->getModel($model);
+            if ($attribute->getType() == 'boolean') {
+                $value = $attribute->getValue($subject, $model) ? 1 : 0;
+            } else {
+                $value = $attribute->getValue($subject, $model);
+            }
+
+            $prefixedCode = $this->getPrefixedCode($code);
+            $object->setData($prefixedCode, $value);
+        }
+    }
 
     /**
      * @param AbstractCondition $subject
@@ -38,7 +62,8 @@ abstract class AbstractVirtualAttribute
         $attributes = $subject->getAttributeOption();
 
         foreach ($this->getAttributes() as $code => $attribute) {
-            $attributes[$code] = $attribute->getLabel();
+            $prefixedCode = $this->getPrefixedCode($code);
+            $attributes[$prefixedCode] = $attribute->getLabel();
         }
 
         $subject->setAttributeOption($attributes);
@@ -54,7 +79,8 @@ abstract class AbstractVirtualAttribute
     public function afterGetValueSelectOptions(AbstractCondition $subject, $result): array
     {
         foreach ($this->getAttributes() as $code => $attribute) {
-            if ($subject->getAttribute() == $code) {
+            $prefixedCode = $this->getPrefixedCode($code);
+            if ($subject->getAttribute() == $prefixedCode) {
                 $attributeType = $attribute->getType();
                 if (in_array($attributeType, ['select', 'multiselect'])) {
                     return $attribute->getOptionSource() ?? [['label' => get_class($attribute) . ' must implement getOptionSource() method', 'value' => 0]];
@@ -76,7 +102,8 @@ abstract class AbstractVirtualAttribute
     public function afterGetInputType(AbstractCondition $subject, $result): string
     {
         foreach ($this->getAttributes() as $code => $attribute) {
-            if ($subject->getAttribute() == $code) {
+            $prefixedCode = $this->getPrefixedCode($code);
+            if ($subject->getAttribute() == $prefixedCode) {
                 return $attribute->getType();
             }
         }
@@ -92,7 +119,8 @@ abstract class AbstractVirtualAttribute
     public function afterGetExplicitApply(AbstractCondition $subject, $result): bool
     {
         foreach ($this->getAttributes() as $code => $attribute) {
-            if ($subject->getAttribute() == $code) {
+            $prefixedCode = $this->getPrefixedCode($code);
+            if ($subject->getAttribute() == $prefixedCode) {
                 return $attribute->getType() == 'date' ? true : $result;
             }
         }
@@ -108,7 +136,8 @@ abstract class AbstractVirtualAttribute
     public function afterGetValueElementType(AbstractCondition $subject, $result): string
     {
         foreach ($this->getAttributes() as $code => $attribute) {
-            if ($subject->getAttribute() == $code) {
+            $prefixedCode = $this->getPrefixedCode($code);
+            if ($subject->getAttribute() == $prefixedCode) {
                 return match ($attribute->getType()) {
                     'select', 'boolean' => 'select',
                     'multiselect' => 'multiselect',
@@ -122,9 +151,22 @@ abstract class AbstractVirtualAttribute
     }
 
     /**
+     * @param string $code
+     * @return string
+     */
+    private function getPrefixedCode(string $code): string
+    {
+        if ($this->attributeCodePrefix !== null) {
+            return $this->attributeCodePrefix . '_' . $code;
+        }
+
+        return $code;
+    }
+
+    /**
      * @return VirtualAttributeInterface[]
      */
-    protected function getAttributes(): array
+    private function getAttributes(): array
     {
         return $this->attributeProvider->get();
     }

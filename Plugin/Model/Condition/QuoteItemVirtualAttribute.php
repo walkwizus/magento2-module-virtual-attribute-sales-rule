@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition;
 
-use Magento\Rule\Model\Condition\AbstractCondition;
 use Magento\Framework\Model\AbstractModel;
 
-class ProductVirtualAttribute extends AbstractVirtualAttribute
+class QuoteItemVirtualAttribute extends AbstractVirtualAttribute
 {
+    /**
+     * @var string|null
+     */
+    protected ?string $attributeCodePrefix = 'quote_item';
+
     /**
      * @param AbstractModel $model
      * @return AbstractModel
      */
     protected function getModel(AbstractModel $model): AbstractModel
     {
-        return $model->getProduct();
+        return $model->getQuote();
     }
 }

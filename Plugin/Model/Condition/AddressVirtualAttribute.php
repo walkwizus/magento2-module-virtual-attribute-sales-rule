@@ -11,23 +11,10 @@ use Magento\Quote\Model\Quote\Address;
 class AddressVirtualAttribute extends AbstractVirtualAttribute
 {
     /**
-     * @param AbstractCondition $subject
      * @param AbstractModel $model
-     * @return void
+     * @return AbstractModel
      */
-    public function beforeValidate(AbstractCondition $subject, AbstractModel $model): void
-    {
-        foreach ($this->getAttributes() as $code => $attribute) {
-            $address = $this->getAddress($model);
-            $address->setData($code, $attribute->getValue($subject, $model));
-        }
-    }
-
-    /**
-     * @param AbstractModel $model
-     * @return Address
-     */
-    private function getAddress(AbstractModel $model): Address
+    protected function getModel(AbstractModel $model): AbstractModel
     {
         if ($model instanceof Address) {
             return $model;
