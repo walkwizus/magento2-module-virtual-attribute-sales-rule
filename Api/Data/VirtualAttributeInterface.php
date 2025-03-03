@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Walkwizus\VirtualAttributeSalesRule\Api\Data;
 
-use Magento\Framework\Model\AbstractModel;
-use Magento\Rule\Model\Condition\AbstractCondition;
 use Magento\Framework\Phrase;
+use Magento\Rule\Model\Condition\AbstractCondition;
+use Magento\Framework\Model\AbstractModel;
 
 interface VirtualAttributeInterface
 {

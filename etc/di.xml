@@ -4,25 +4,7 @@
     <type name="Magento\SalesRule\Model\Rule\Condition\Product">
         <plugin name="sales_rule_condition_product_virtual_attribute" sortOrder="100" type="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\ProductVirtualAttribute"/>
     </type>
-    <type name="Magento\SalesRule\Model\Rule\Condition\Product">
-        <plugin name="sales_rule_condition_quote_item_virtual_attribute" sortOrder="110" type="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\QuoteItemVirtualAttribute"/>
-    </type>
     <type name="Magento\SalesRule\Model\Rule\Condition\Address">
-        <plugin name="sales_rule_condition_address_virtual_attribute" sortOrder="120" type="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\AddressVirtualAttribute"/>
-    </type>
-    <type name="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\ProductVirtualAttribute">
-        <arguments>
-            <argument name="attributeProvider" xsi:type="object">Walkwizus\VirtualAttributeSalesRule\Model\ProductVirtualAttributeProvider</argument>
-        </arguments>
-    </type>
-    <type name="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\QuoteItemVirtualAttribute">
-        <arguments>
-            <argument name="attributeProvider" xsi:type="object">Walkwizus\VirtualAttributeSalesRule\Model\QuoteItemVirtualAttributeProvider</argument>
-        </arguments>
-    </type>
-    <type name="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\AddressVirtualAttribute">
-        <arguments>
-            <argument name="attributeProvider" xsi:type="object">Walkwizus\VirtualAttributeSalesRule\Model\AddressVirtualAttributeProvider</argument>
-        </arguments>
+        <plugin name="sales_rule_condition_address_virtual_attribute" sortOrder="120" type="Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition\CartVirtualAttribute"/>
     </type>
 </config>

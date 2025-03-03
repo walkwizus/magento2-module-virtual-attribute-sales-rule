@@ -6,49 +6,64 @@ namespace Walkwizus\VirtualAttributeSalesRule\Plugin\Model\Condition;
 
 use Walkwizus\VirtualAttributeSalesRule\Model\VirtualAttributeProvider;
 use Magento\Config\Model\Config\Source\Yesno;
+use Magento\Catalog\Api\ProductRepositoryInterface;
 use Magento\Rule\Model\Condition\AbstractCondition;
 use Magento\Framework\Model\AbstractModel;
 use Walkwizus\VirtualAttributeSalesRule\Api\Data\VirtualAttributeInterface;
+use Magento\Quote\Model\Quote;
+use Magento\Quote\Model\Quote\Item;
+use Magento\Catalog\Model\Product;
+use Magento\Quote\Model\Quote\Address;
+use Magento\Framework\Exception\NoSuchEntityException;
 
 abstract class AbstractVirtualAttribute
 {
     /**
-     * @var string|null
+     * @var array
      */
-    protected ?string $attributeCodePrefix = null;
+    private array $virtualAttributes;
 
     /**
      * @param VirtualAttributeProvider $attributeProvider
      * @param Yesno $yesno
+     * @param ProductRepositoryInterface $productRepository
      */
     public function __construct(
-        protected readonly VirtualAttributeProvider $attributeProvider,
-        protected readonly Yesno $yesno
-    ) { }
+        private readonly VirtualAttributeProvider $attributeProvider,
+        private readonly Yesno $yesno,
+        private readonly ProductRepositoryInterface $productRepository
+    ) {
+        $this->virtualAttributes = $this->attributeProvider->get();
+    }
 
     /**
-     * @param AbstractModel $model
-     * @return AbstractModel
+     * @return string
      */
-    abstract protected function getModel(AbstractModel $model): AbstractModel;
+    abstract protected function getSection(): string;
 
     /**
      * @param AbstractCondition $subject
      * @param AbstractModel $model
      * @return void
+     * @throws NoSuchEntityException
      */
     public function beforeValidate(AbstractCondition $subject, AbstractModel $model): void
     {
-        foreach ($this->getAttributes() as $code => $attribute) {
-            $object = $this->getModel($model);
-            if ($attribute->getType() == 'boolean') {
-                $value = $attribute->getValue($subject, $model) ? 1 : 0;
-            } else {
-                $value = $attribute->getValue($subject, $model);
-            }
+        if (!$this->hasVirtualAttributes()) {
+            return;
+        }
 
-            $prefixedCode = $this->getPrefixedCode($code);
-            $object->setData($prefixedCode, $value);
+        $section = $this->getSection();
+
+        $attributeCode = $subject->getAttribute();
+        $attribute = $this->getAttribute($attributeCode);
+
+        if ($attribute) {
+            $valueObject = $this->getModelForValueRetrieval($model, $section, $attributeCode);
+            $value = $this->getAttributeValue($attribute, $subject, $valueObject);
+
+            $targetObject = $this->getModelForDataSetting($model, $section, $attributeCode);
+            $targetObject->setData($attributeCode, $value);
         }
     }
 
@@ -59,13 +74,19 @@ abstract class AbstractVirtualAttribute
      */
     public function afterLoadAttributeOptions(AbstractCondition $subject, AbstractCondition $result): AbstractCondition
     {
-        $attributes = $subject->getAttributeOption();
-
-        foreach ($this->getAttributes() as $code => $attribute) {
-            $prefixedCode = $this->getPrefixedCode($code);
-            $attributes[$prefixedCode] = $attribute->getLabel();
+        if (!$this->hasVirtualAttributes()) {
+            return $result;
         }
 
+        $section = $this->getSection();
+        $attributes = $subject->getAttributeOption();
+
+        /** @var VirtualAttributeInterface $attribute */
+        foreach ($this->virtualAttributes[$section] as $code => $attribute) {
+            $attributes[$code] = $attribute->getLabel() . __('(Virtual Attribute)');
+        }
+
+        asort($attributes);
         $subject->setAttributeOption($attributes);
 
         return $result;
@@ -78,17 +99,26 @@ abstract class AbstractVirtualAttribute
      */
     public function afterGetValueSelectOptions(AbstractCondition $subject, $result): array
     {
-        foreach ($this->getAttributes() as $code => $attribute) {
-            $prefixedCode = $this->getPrefixedCode($code);
-            if ($subject->getAttribute() == $prefixedCode) {
-                $attributeType = $attribute->getType();
-                if (in_array($attributeType, ['select', 'multiselect'])) {
-                    return $attribute->getOptionSource() ?? [['label' => get_class($attribute) . ' must implement getOptionSource() method', 'value' => 0]];
-                }
-                if ($attributeType == 'boolean') {
-                    return $this->yesno->toOptionArray();
-                }
-            }
+        $attributeCode = $subject->getAttribute();
+        $attribute = $this->getAttribute($attributeCode);
+
+        if (!$attribute) {
+            return $result ?? [];
+        }
+
+        $attributeType = $attribute->getType();
+
+        if (in_array($attributeType, ['select', 'multiselect'])) {
+            return $attribute->getOptionSource() ?? [
+                [
+                    'label' => get_class($attribute) . ' must implement getOptionSource() method',
+                    'value' => 0
+                ]
+            ];
+        }
+
+        if ($attributeType === 'boolean') {
+            return $this->yesno->toOptionArray();
         }
 
         return $result ?? [];
@@ -101,11 +131,11 @@ abstract class AbstractVirtualAttribute
      */
     public function afterGetInputType(AbstractCondition $subject, $result): string
     {
-        foreach ($this->getAttributes() as $code => $attribute) {
-            $prefixedCode = $this->getPrefixedCode($code);
-            if ($subject->getAttribute() == $prefixedCode) {
-                return $attribute->getType();
-            }
+        $attributeCode = $subject->getAttribute();
+        $attribute = $this->getAttribute($attributeCode);
+
+        if ($attribute) {
+            return $attribute->getType();
         }
 
         return $result;
@@ -118,11 +148,11 @@ abstract class AbstractVirtualAttribute
      */
     public function afterGetExplicitApply(AbstractCondition $subject, $result): bool
     {
-        foreach ($this->getAttributes() as $code => $attribute) {
-            $prefixedCode = $this->getPrefixedCode($code);
-            if ($subject->getAttribute() == $prefixedCode) {
-                return $attribute->getType() == 'date' ? true : $result;
-            }
+        $attributeCode = $subject->getAttribute();
+        $attribute = $this->getAttribute($attributeCode);
+
+        if ($attribute && $attribute->getType() === 'date') {
+            return true;
         }
 
         return $result;
@@ -135,39 +165,128 @@ abstract class AbstractVirtualAttribute
      */
     public function afterGetValueElementType(AbstractCondition $subject, $result): string
     {
-        foreach ($this->getAttributes() as $code => $attribute) {
-            $prefixedCode = $this->getPrefixedCode($code);
-            if ($subject->getAttribute() == $prefixedCode) {
-                return match ($attribute->getType()) {
-                    'select', 'boolean' => 'select',
-                    'multiselect' => 'multiselect',
-                    'date' => 'date',
-                    default => 'text',
-                };
-            }
+        $attributeCode = $subject->getAttribute();
+        $attribute = $this->getAttribute($attributeCode);
+
+        if (!$attribute) {
+            return $result;
         }
 
-        return $result;
+        return match ($attribute->getType()) {
+            'select', 'boolean' => 'select',
+            'multiselect' => 'multiselect',
+            'date' => 'date',
+            default => 'text',
+        };
     }
 
     /**
+     * @return bool
+     */
+    private function hasVirtualAttributes(): bool
+    {
+        return isset($this->virtualAttributes[$this->getSection()]);
+    }
+
+    /**
+     * @param string $attributeCode
+     * @return VirtualAttributeInterface|null
+     */
+    private function getAttribute(string $attributeCode): ?VirtualAttributeInterface
+    {
+        if (!$this->hasVirtualAttributes()) {
+            return null;
+        }
+
+        return $this->virtualAttributes[$this->getSection()][$attributeCode] ?? null;
+    }
+
+    /**
+     * @param VirtualAttributeInterface $attribute
+     * @param AbstractCondition $subject
+     * @param AbstractModel $valueObject
+     * @return mixed
+     */
+    private function getAttributeValue(
+        VirtualAttributeInterface $attribute,
+        AbstractCondition $subject,
+        AbstractModel $valueObject
+    ): mixed {
+        if ($attribute->getType() === 'boolean') {
+            return $attribute->getValue($subject, $valueObject) ? 1 : 0;
+        }
+
+        return $attribute->getValue($subject, $valueObject);
+    }
+
+    /**
+     * @param AbstractModel $model
+     * @param string $section
      * @param string $code
-     * @return string
+     * @return Item|Product|Address|AbstractModel
+     * @throws NoSuchEntityException
      */
-    private function getPrefixedCode(string $code): string
+    private function getModelForValueRetrieval(AbstractModel $model, string $section, string $code): Item|Product|Address|AbstractModel
     {
-        if ($this->attributeCodePrefix !== null) {
-            return $this->attributeCodePrefix . '_' . $code;
-        }
-
-        return $code;
+        return $this->getModelBySection($model, $section, $code);
     }
 
     /**
-     * @return VirtualAttributeInterface[]
+     * @param AbstractModel $model
+     * @param string $section
+     * @param string $code
+     * @return Item|Product|Address|AbstractModel
+     * @throws NoSuchEntityException
      */
-    private function getAttributes(): array
+    private function getModelBySection(AbstractModel $model, string $section, string $code): Item|Product|Address|AbstractModel
     {
-        return $this->attributeProvider->get();
+        if ($section == 'product' || $section == 'cart_item') {
+            if (str_contains($code, 'quote_item_')) {
+                return $model;
+            }
+            /** @var Product $product */
+            $product = $model->getProduct();
+            if (!$product instanceof Product) {
+                $product = $this->productRepository->getById($model->getProductId());
+            }
+            return $product;
+        } else if($section == 'cart') {
+            if (!$model instanceof Quote) {
+                return $model->getQuote();
+            }
+            return $model;
+        }
+
+        return $model;
+    }
+
+    /**
+     * @param AbstractModel $model
+     * @param string $section
+     * @param string $code
+     * @return Item|Product|Address|AbstractModel
+     * @throws NoSuchEntityException
+     */
+    private function getModelForDataSetting(AbstractModel $model, string $section, string $code): Item|Product|Address|AbstractModel
+    {
+        if ($section == 'product') {
+            if ($model instanceof Item) {
+                /** @var Product $product */
+                $product = $model->getProduct();
+                if (!$product instanceof Product) {
+                    $product = $this->productRepository->getById($model->getProductId());
+                }
+                return $product;
+            }
+        } else if ($section == 'cart') {
+            if (!$model instanceof Address) {
+                return $model->getQuote()->isVirtual()
+                    ? $model->getQuote()->getBillingAddress()
+                    : $model->getQuote()->getShippingAddress();
+            }
+            return $model;
+        }
+
+        return $this->getModelBySection($model, $section, $code);
     }
 }
